@@ -27,7 +27,7 @@ def main():
     """
     # Regex to match the log format
     log_pattern = re.compile(
-        r'^(\S+) - \[.*?\] "GET /projects/260 HTTP/1.1" (\d+) (\d+)$'
+        r'^([\d.]+) - \[(.*?)\] "GET /projects/260 HTTP/1.1" (\d{3}) (\d+)$'
     )
     
     # Initialize metrics
@@ -38,26 +38,37 @@ def main():
     try:
         for line in sys.stdin:
             line = line.strip()
-            match = log_pattern.match(line)
+            line_count += 1
             
-            # Skip invalid lines
+            # Parse line
+            match = log_pattern.match(line)
             if not match:
+                # Print stats every 10 lines, even if invalid
+                if line_count % 10 == 0:
+                    print_stats(total_size, status_counts)
                 continue
             
-            # Extract status code and file size
-            status_code = int(match.group(2))
-            file_size = int(match.group(3))
+            # Extract and validate status code and file size
+            try:
+                status_code = int(match.group(3))
+                file_size = int(match.group(4))
+            except ValueError:
+                # Skip lines with non-integer status code or file size
+                if line_count % 10 == 0:
+                    print_stats(total_size, status_counts)
+                continue
             
             # Validate status code
             if status_code not in status_counts:
+                if line_count % 10 == 0:
+                    print_stats(total_size, status_counts)
                 continue
                 
             # Update metrics
             total_size += file_size
             status_counts[status_code] += 1
-            line_count += 1
             
-            # Print stats every 10 valid lines
+            # Print stats every 10 lines
             if line_count % 10 == 0:
                 print_stats(total_size, status_counts)
                 
