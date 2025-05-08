@@ -1,82 +1,66 @@
 #!/usr/bin/python3
-"""
-Module for parsing log lines from stdin and computing metrics
-"""
 import sys
-import re
+import signal
 
+# Initialize variables
+total_size = 0
+status_counts = {200: 0, 301: 0, 400: 0, 401: 0, 403: 0, 404: 0, 405: 0, 500: 0}
+line_count = 0
 
-def print_stats(total_size, status_counts):
-    """
-    Prints total file size and status code counts in ascending order.
-
-    Args:
-        total_size (int): Sum of file sizes.
-        status_counts (dict): Status codes to counts.
-    """
-    print("File size: {}".format(total_size))
+def print_stats():
+    """Print accumulated statistics."""
+    print(f"File size: {total_size}")
     for code in sorted(status_counts.keys()):
         if status_counts[code] > 0:
-            print("{}: {}".format(code, status_counts[code]))
-    sys.stdout.flush()
+            print(f"{code}: {status_counts[code]}")
 
+def signal_handler(sig, frame):
+    """Handle keyboard interruption (CTRL + C)."""
+    print_stats()
+    sys.exit(0)
 
-def main():
-    """
-    Reads stdin, computes metrics, prints stats every 10 lines or on interrupt.
-    """
-    # Regex for IPv4 and log format
-    ip_part = r'(?:\d{1,3}\.){3}\d{1,3}'
-    log_pattern = re.compile(
-        r'^({}) - \[(.*?)\] "GET /projects/260 HTTP/1.1" (\d{{3}})\s+(\d+)$'
-        .format(ip_part)
-    )
+# Set up signal handler for CTRL + C
+signal.signal(signal.SIGINT, signal_handler)
+
+# Read input line by line
+for line in sys.stdin:
+    # Increment line count
+    line_count += 1
     
-    # Initialize metrics
-    total_size = 0
-    status_counts = {200: 0, 301: 0, 400: 0, 401: 0, 403: 0, 404: 0,
-                     405: 0, 500: 0}
-    line_count = 0
-
+    # Split and validate line format
     try:
-        for line in sys.stdin:
-            line = line.strip()
-            line_count += 1
+        parts = line.strip().split()
+        if len(parts) < 9:
+            continue
             
-            # Parse line
-            match = log_pattern.match(line)
-            if not match:
-                if line_count % 10 == 0:
-                    print_stats(total_size, status_counts)
-                continue
+        # Check if the line matches expected format
+        if (parts[1] != '-' or 
+            not parts[2].startswith('[') or 
+            parts[4] != '"GET' or 
+            parts[5] != '/projects/260' or 
+            parts[6] != 'HTTP/1.1"'):
+            continue
             
-            # Extract and validate
-            try:
-                status_code = int(match.group(3))
-                file_size = int(match.group(4))
-            except ValueError:
-                if line_count % 10 == 0:
-                    print_stats(total_size, status_counts)
-                continue
+        # Extract status code and file size
+        status_code = int(parts[7])
+        file_size = int(parts[8])
+        
+        # Validate status code
+        if status_code not in status_counts:
+            continue
             
-            # Validate status code
-            if status_code not in status_counts:
-                if line_count % 10 == 0:
-                    print_stats(total_size, status_counts)
-                continue
-            
-            # Update metrics
-            total_size += file_size
-            status_counts[status_code] += 1
-            
-            # Print stats every 10 lines
-            if line_count % 10 == 0:
-                print_stats(total_size, status_counts)
-                
-    except KeyboardInterrupt:
-        print_stats(total_size, status_counts)
-        raise
+        # Update metrics
+        total_size += file_size
+        status_counts[status_code] += 1
+        
+    except (ValueError, IndexError):
+        # Skip lines with invalid format or non-integer values
+        continue
+    
+    # Print stats every 10 lines
+    if line_count % 10 == 0:
+        print_stats()
 
-
-if __name__ == "__main__":
-    main()
+# Print final stats if any lines were processed
+if line_count > 0:
+    print_stats()
