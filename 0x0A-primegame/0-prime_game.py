@@ -12,15 +12,16 @@ def isWinner(x, nums):
         str or None: Name of the player who wins the most rounds ("Maria" or "Ben"),
                      or None if equal or no valid games.
     """
-    if not nums or x < 1:
+    # Handle edge cases: empty nums or invalid number of rounds
+    if not nums or x < 1 or len(nums) < x:
         return None
 
-    # Find maximum n for sieve
+    # If all values are less than 1, no valid games possible
     max_n = max(nums)
     if max_n < 1:
         return None
 
-    # Sieve of Eratosthenes
+    # Sieve of Eratosthenes to identify primes up to max_n
     sieve = [True] * (max_n + 1)
     sieve[0] = sieve[1] = False
     for i in range(2, int(max_n ** 0.5) + 1):
@@ -28,14 +29,19 @@ def isWinner(x, nums):
             for j in range(i * i, max_n + 1, i):
                 sieve[j] = False
 
-    # Count wins
+    # Precompute prefix sum of primes for O(1) lookup
+    prefix = [0] * (max_n + 1)
+    for i in range(2, max_n + 1):
+        prefix[i] = prefix[i - 1] + (1 if sieve[i] else 0)
+
+    # Count wins for each player
     maria_wins = 0
     ben_wins = 0
-    for n in nums:
+    for i in range(x):  # Only process x rounds
+        n = nums[i]
         if n < 1:
-            continue
-        # Count primes from 2 to n
-        prime_count = sum(1 for i in range(2, n + 1) if sieve[i])
+            continue  # Skip invalid rounds, though problem assumes n >= 1
+        prime_count = prefix[n]  # Number of primes up to n
         if prime_count % 2 == 1:
             maria_wins += 1
         else:
@@ -48,3 +54,9 @@ def isWinner(x, nums):
         return "Ben"
     else:
         return None
+
+# Example usage and testing
+if __name__ == "__main__":
+    # Test case from typical problem example
+    print(isWinner(3, [4, 5, 1]))  # Should determine winner based on rounds
+    print(isWinner(5, [2, 5, 1, 4, 3]))  # Should output "Ben"
