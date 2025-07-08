@@ -2,21 +2,21 @@
 
 def isWinner(x, nums):
     """
-    Determines the winner of the Prime Game for multiple rounds.
-    
+    Determines the winner of the Prime Game across multiple rounds.
+
     Args:
-        x (int): Number of rounds.
-        nums (list): List of integers representing n for each round.
-    
+        x (int): The number of rounds to play.
+        nums (list): A list of integers, each representing the value of n for a round.
+
     Returns:
-        str or None: Name of the player who wins the most rounds ("Maria" or "Ben"),
-                     or None if equal or no valid games.
+        str or None: The name of the player who wins the most rounds ("Maria" or "Ben"),
+                     or None if they win an equal number of rounds or input is invalid.
     """
-    # Handle edge cases: empty nums or invalid number of rounds
-    if not nums or x < 1 or len(nums) < x:
+    # Handle invalid inputs
+    if not nums or x < 1 or x > len(nums):
         return None
 
-    # If all values are less than 1, no valid games possible
+    # Find the maximum n to compute primes up to that value
     max_n = max(nums)
     if max_n < 1:
         return None
@@ -29,20 +29,20 @@ def isWinner(x, nums):
             for j in range(i * i, max_n + 1, i):
                 sieve[j] = False
 
-    # Precompute prefix sum of primes for O(1) lookup
-    prefix = [0] * (max_n + 1)
+    # Precompute the number of primes up to each n (prefix sum)
+    prime_count = [0] * (max_n + 1)
     for i in range(2, max_n + 1):
-        prefix[i] = prefix[i - 1] + (1 if sieve[i] else 0)
+        prime_count[i] = prime_count[i - 1] + (1 if sieve[i] else 0)
 
     # Count wins for each player
     maria_wins = 0
     ben_wins = 0
-    for i in range(x):  # Only process x rounds
+    for i in range(x):
         n = nums[i]
         if n < 1:
-            continue  # Skip invalid rounds, though problem assumes n >= 1
-        prime_count = prefix[n]  # Number of primes up to n
-        if prime_count % 2 == 1:
+            continue
+        # Number of primes determines the winner (odd: Maria, even: Ben)
+        if prime_count[n] % 2 == 1:
             maria_wins += 1
         else:
             ben_wins += 1
@@ -54,9 +54,3 @@ def isWinner(x, nums):
         return "Ben"
     else:
         return None
-
-# Example usage and testing
-if __name__ == "__main__":
-    # Test case from typical problem example
-    print(isWinner(3, [4, 5, 1]))  # Should determine winner based on rounds
-    print(isWinner(5, [2, 5, 1, 4, 3]))  # Should output "Ben"
